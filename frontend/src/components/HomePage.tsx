@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import {
+  authenticatedFetch,
   clearAccessToken,
   consumeWorkspaceReturn,
-  getAccessToken,
 } from "../lib/session";
 
 export default function HomePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isCheckingSession, setIsCheckingSession] = useState(Boolean(getAccessToken()));
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   useEffect(() => {
     if (!consumeWorkspaceReturn()) return;
@@ -17,16 +17,8 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      setIsCheckingSession(false);
-      return;
-    }
-
     let cancelled = false;
-    fetch("/api/auth/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    authenticatedFetch("/api/auth/me")
       .then((response) => {
         if (!response.ok) throw new Error("Unauthorized");
         if (!cancelled) setIsLoggedIn(true);

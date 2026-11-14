@@ -3,22 +3,14 @@ import HomePage from "./components/HomePage";
 import LoginRegisterPage from "./components/LoginRegisterPage";
 import ProfilePage from "./components/ProfilePage";
 import {
+  authenticatedFetch,
   clearAccessToken,
-  getAccessToken,
   markWorkspaceReturn,
 } from "./lib/session";
 
 function ConverterRedirect() {
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      window.location.replace("/auth/workspace");
-      return;
-    }
-
-    fetch("/api/auth/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    authenticatedFetch("/api/auth/me")
       .then((response) => {
         if (!response.ok) throw new Error("Unauthorized");
         markWorkspaceReturn();

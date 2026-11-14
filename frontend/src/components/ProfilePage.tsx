@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { clearAccessToken, getAccessToken } from "../lib/session";
+import { authenticatedFetch, clearAccessToken } from "../lib/session";
 
 type Profile = {
   email: string;
@@ -9,16 +9,8 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      window.location.replace("/auth/profile");
-      return;
-    }
-
     let cancelled = false;
-    fetch("/api/auth/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    authenticatedFetch("/api/auth/me")
       .then(async (response) => {
         if (!response.ok) throw new Error("Unauthorized");
         return (await response.json()) as Profile;
@@ -37,9 +29,18 @@ export default function ProfilePage() {
     };
   }, []);
 
-  function logOut() {
-    clearAccessToken();
-    window.location.assign("/");
+  async function logOut() {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // Clear the local access token even if the API is temporarily unavailable.
+    } finally {
+      clearAccessToken();
+      window.location.assign("/");
+    }
   }
 
   if (!profile) {

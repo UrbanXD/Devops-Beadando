@@ -1,5 +1,8 @@
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
+from uuid import uuid4
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -9,8 +12,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User
-from app.settings import ACCESS_TOKEN_EXPIRE_MINUTES, JWT_ALGORITHM, JWT_SECRET_KEY
+from app.models import RefreshSession, User
+from app.settings import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    JWT_ALGORITHM,
+    JWT_SECRET_KEY,
+    REFRESH_TOKEN_EXPIRE_DAYS,
+)
 
 
 password_hasher = PasswordHash.recommended()
@@ -31,6 +39,25 @@ def create_access_token(user_id: int) -> str:
     )
     payload = {"sub": str(user_id), "exp": expires_at}
     return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def create_refresh_session(
+    user_id: int,
+    family_id: str | None = None,
+) -> tuple[str, RefreshSession]:
+    token = secrets.token_urlsafe(48)
+    now = datetime.now(timezone.utc)
+    session = RefreshSession(
+        user_id=user_id,
+        family_id=family_id or str(uuid4()),
+        token_hash=hash_refresh_token(token),
+        expires_at=now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+    )
+    return token, session
 
 
 def get_current_user(

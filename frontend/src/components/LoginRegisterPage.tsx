@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
+  authenticatedFetch,
   clearAccessToken,
-  getAccessToken,
+  getActiveAccessToken,
   markWorkspaceReturn,
   saveAccessToken,
 } from "../lib/session";
@@ -39,23 +40,23 @@ export default function LoginRegisterPage() {
     window.location.pathname === "/register" ? "register" : "login",
   );
   const [isBusy, setIsBusy] = useState(false);
-  const [isCheckingSession, setIsCheckingSession] = useState(Boolean(getAccessToken()));
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      setIsCheckingSession(false);
-      return;
-    }
-
     let cancelled = false;
-    fetch("/api/auth/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error("A munkamenet lejárt.");
-        returnToApp();
+    getActiveAccessToken()
+      .then((token) => {
+        if (cancelled) return;
+        if (!token) {
+          setIsCheckingSession(false);
+          return;
+        }
+        return authenticatedFetch("/api/auth/me").then((response) => {
+          if (cancelled) return;
+          if (!response.ok) throw new Error("A munkamenet lejárt.");
+          returnToApp();
+        });
       })
       .catch(() => {
         if (cancelled) return;
@@ -84,6 +85,7 @@ export default function LoginRegisterPage() {
       const response = await fetch(`/api/auth/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(credentials),
       });
       const body = (await response.json().catch(() => ({}))) as TokenResponse & ApiProblem;
