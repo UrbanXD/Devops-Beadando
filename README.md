@@ -27,6 +27,18 @@ Az API indulásakor az adatbázis-migrációk automatikusan lefutnak. A PostgreS
 
 A szolgáltatások leállítása: `docker compose down`.
 
+## Automatizált ellenőrzések
+
+Az API-tesztek külön, memóriabeli SQLite-adatbázist használnak.
+
+**Virtuális környezet létrehozása:** `python3 -m venv .venv`.
+
+**Tesztfüggőségek telepítése:** `.venv/bin/python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt`.
+
+**Backend tesztek futtatása:** `.venv/bin/python -m pytest backend/tests`.
+
+Debian/Ubuntu rendszeren, ha a virtuális környezet létrehozása nem sikerül: `sudo apt install python3-venv`.
+
 ## API-funkciók
 
 - `POST /api/auth/register` — regisztráció e-mail-címmel és jelszóval.

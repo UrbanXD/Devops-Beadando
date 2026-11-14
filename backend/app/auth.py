@@ -161,7 +161,11 @@ def refresh(
         revoke_active_family(database, refresh_session.family_id, now)
         return invalid_refresh_response()
 
-    if refresh_session.expires_at <= now:
+    expires_at = refresh_session.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if expires_at <= now:
         refresh_session.revoked_at = now
         database.commit()
         return invalid_refresh_response()
@@ -174,6 +178,7 @@ def refresh(
             RefreshSession.expires_at > now,
         )
         .values(revoked_at=now)
+        .execution_options(synchronize_session=False)
     )
     if rotation.rowcount != 1:
         database.rollback()
