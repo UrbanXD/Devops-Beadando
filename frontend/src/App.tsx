@@ -1,31 +1,64 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useEffect } from "react";
+import HomePage from "./components/HomePage";
+import LoginRegisterPage from "./components/LoginRegisterPage";
+import ProfilePage from "./components/ProfilePage";
+import {
+  clearAccessToken,
+  getAccessToken,
+  markWorkspaceReturn,
+} from "./lib/session";
+
+function ConverterRedirect() {
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      window.location.replace("/auth/workspace");
+      return;
+    }
+
+    fetch("/api/auth/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("Unauthorized");
+        markWorkspaceReturn();
+        window.location.replace("/");
+      })
+      .catch(() => {
+        clearAccessToken();
+        window.location.replace("/auth/workspace");
+      });
+  }, []);
+
+  return <main className="page-shell"><p role="status">Munkafelület megnyitása…</p></main>;
+}
 
 export default function App() {
-  const [count, setCount] = useState(0);
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
 
-  return (
-    <main>
-      <div>
-        <a href="https://vite.dev" target="_blank" rel="noreferrer">
-          <img src="/vite.svg" className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank" rel="noreferrer">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((value) => value + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </main>
-  );
+  useEffect(() => {
+    if (window.location.search || window.location.hash) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  if (
+    path === "/auth" ||
+    path === "/auth/workspace" ||
+    path === "/auth/profile" ||
+    path === "/login" ||
+    path === "/register"
+  ) {
+    return <LoginRegisterPage />;
+  }
+
+  if (path === "/converter") {
+    return <ConverterRedirect />;
+  }
+
+  if (path === "/profile") {
+    return <ProfilePage />;
+  }
+
+  return <HomePage />;
 }

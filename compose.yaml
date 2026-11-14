@@ -38,11 +38,11 @@ services:
       - "${WEB_PORT:-5173}:5173"
     volumes:
       - ./frontend:/app
-      - frontend-node-modules:/app/node_modules
+      - ./frontend/node_modules:/app/node_modules
+    command: sh -c "npm install && npm run dev"
     depends_on:
       - api
 
 volumes:
   converter-data:
-  frontend-node-modules:
   postgres-data:
