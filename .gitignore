@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# JavaScript
+node_modules/
+dist/
+
+# Local configuration and generated data
+.env
+data/
+coverage/
+.coverage
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
