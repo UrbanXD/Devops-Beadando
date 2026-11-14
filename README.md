@@ -13,7 +13,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Az API indulásakor az adatbázis-migrációk automatikusan lefutnak. A PostgreSQL-adatok a `postgres-data` nevű Docker volume-ban maradnak meg. A migrációs fájlok készítésének és futtatásának leírása: [MIGRACIOK.md](MIGRATION.md).
+Az API indulásakor az adatbázis-migrációk automatikusan lefutnak. A PostgreSQL-adatok a `postgres-data` nevű Docker volume-ban maradnak meg. A migrációs fájlok készítésének és futtatásának leírása: [MIGRACIOK.md](MIGRACIOK.md).
 
 ## Elérési pontok
 
@@ -30,6 +30,8 @@ A szolgáltatások leállítása: `docker compose down`.
 ## Automatizált ellenőrzések
 
 Az API-tesztek külön, memóriabeli SQLite-adatbázist használnak.
+
+GitHub Actions minden pushnál és pull requestnél lefuttatja a backendteszteket, valamint elkészíti a frontend buildet.
 
 **Virtuális környezet létrehozása:** `python3 -m venv .venv`.
 
