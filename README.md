@@ -1,8 +1,10 @@
 # PDF ↔ DOCX konverter
 
-Egy helyben futtatható webalkalmazás alapja PDF és DOCX dokumentumok átalakításához. A projekt Python API-t és React felületet használ. A konverziós motor, a tartós feladatkezelés és a helyreállítási folyamat a következő fejlesztési lépésben készül el.
+Ez a projekt egy PDF- és DOCX-dokumentumok átalakítására készülő webalkalmazás. A backend Python és FastAPI, a frontend React és TypeScript, az adattárolás PostgreSQL-alapú.
 
-## Indítás
+A jelenlegi verzióban regisztráció, bejelentkezés, profiladatok megtekintése, kijelentkezés és fióktörlés érhető el. A főoldalon található konverziós munkafelület még fejlesztés alatt áll.
+
+## Helyi környezet reprodukálása
 
 Szükséges: Docker és Docker Compose.
 
@@ -11,25 +13,61 @@ cp .env.example .env
 docker compose up --build
 ```
 
-- React felület: <http://localhost:5173>
+Az API indulásakor az adatbázis-migrációk automatikusan lefutnak. A PostgreSQL-adatok a `postgres-data` nevű Docker volume-ban maradnak meg. A migrációs fájlok készítésének és futtatásának leírása: [MIGRACIOK.md](MIGRACIOK.md).
+
+## Elérési pontok
+
+- Kezdőlap és munkafelület: <http://localhost:5173/>
+- Bejelentkezés és regisztráció: <http://localhost:5173/auth>
+- Munkafelület belépési útvonala: <http://localhost:5173/auth/workspace>
+- Profil: <http://localhost:5173/profile>
 - API dokumentáció: <http://localhost:8000/docs>
 - API állapot: <http://localhost:8000/api/health>
+- API és adatbázis állapota: <http://localhost:8000/api/health/ready>
 
-Leállítás: `docker compose down`. A konverziós fájlok később a `converter-data` nevű Docker volume-ba kerülnek, hogy a konténerek újraindítása ne törölje őket.
+A szolgáltatások leállítása: `docker compose down`.
 
-## Szerkezet
+## Automatizált ellenőrzések
 
-- `backend/` — FastAPI API
-- `frontend/` — React + TypeScript + Vite
-- `compose.yaml` — helyi fejlesztői környezet
+Az API-tesztek külön, memóriabeli SQLite-adatbázist használnak.
 
-## Következő fejlesztési lépések
+GitHub Actions minden pushnál és pull requestnél lefuttatja a backendteszteket, valamint elkészíti a frontend buildet.
 
-1. Fájlfeltöltés, méret- és formátumellenőrzés.
-2. Konverziós feladatok és állapotuk tartós tárolása.
-3. PDF → DOCX és DOCX → PDF feldolgozás.
-4. Eredményletöltés, hibakezelés és helyreállítás.
-5. Automatizált folyamatellenőrzés, CI, biztonsági vizsgálatok és SBOM.
-6. Telepítés, megfigyelhetőség, rollback és kipróbált helyreállítás.
+**Virtuális környezet létrehozása:** `python3 -m venv .venv`.
 
-Valódi hozzáférési titkot ne tegyél a Gitbe. A helyi konfigurációs értékekhez használd a `.env.example` fájlt mintaként.
+**Tesztfüggőségek telepítése:** `.venv/bin/python -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt`.
+
+**Backend tesztek futtatása:** `.venv/bin/python -m pytest backend/tests`.
+
+Debian/Ubuntu rendszeren, ha a virtuális környezet létrehozása nem sikerül: `sudo apt install python3-venv`.
+
+**Frontend build ellenőrzése Dockerrel:**
+
+```sh
+docker run --rm \
+  -v "$PWD/frontend:/app" \
+  -v /app/node_modules \
+  -w /app \
+  node:22-bookworm-slim \
+  sh -c 'npm ci && npm run build'
+```
+
+## API-funkciók
+
+- `POST /api/auth/register` — regisztráció e-mail-címmel és jelszóval.
+- `POST /api/auth/login` — bejelentkezés.
+- `POST /api/auth/refresh` — refresh cookie cseréje és új access token kiadása.
+- `POST /api/auth/logout` — refresh session visszavonása és cookie törlése.
+- `GET /api/auth/me` — bejelentkezett felhasználó adatainak lekérése.
+- `DELETE /api/auth/me` — saját fiók törlése jelszóval megerősítve.
+
+A jelszavak Argon2 hashként, a refresh tokenek SHA-256 hashként kerülnek az adatbázisba. A refresh token HttpOnly, SameSite=Lax cookie-ban van, és minden frissítéskor új tokenre cserélődik. Az access token alapértelmezett élettartama 15 perc, a refresh tokené legfeljebb 30 nap. Éles HTTPS-környezetben a `REFRESH_COOKIE_SECURE=true` beállítás szükséges.
+
+## Projektfájlok
+
+- `backend/` — FastAPI API, adatmodellek és Alembic-migrációk.
+- `frontend/` — React + TypeScript + Vite felület.
+- `compose.yaml` — helyi fejlesztői környezet.
+- `.env.example` — helyi konfiguráció mintája.
+
+Valódi hozzáférési titok nem kerülhet a Gitbe.
