@@ -1,0 +1,96 @@
+.home-nav {
+  display: flex;
+  width: min(100%, 760px);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: auto;
+  padding: 4px 0 24px;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #24332a;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.wordmark .brand-mark {
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  border-radius: 9px;
+  font-size: 10px;
+}
+
+.nav-link {
+  color: #286448;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  color: #174d35;
+  text-decoration: underline;
+}
+
+.home-card {
+  width: min(100%, 760px);
+  padding: clamp(30px, 7vw, 64px);
+  border: 1px solid #e1e6eb;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 36px #102b3b0d;
+}
+
+.home-card h1 {
+  margin: 16px 0;
+  font-size: clamp(38px, 8vw, 64px);
+  line-height: 1.06;
+  letter-spacing: -2px;
+}
+
+.home-card .subtitle {
+  max-width: 540px;
+  margin-bottom: 0;
+  font-size: 16px;
+}
+
+.workspace-card {
+  width: min(100%, 760px);
+  margin-top: 22px;
+  padding: clamp(22px, 5vw, 34px);
+  border: 1px solid #e1e6eb;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.workspace-header h2 {
+  margin: 9px 0 18px;
+  color: #1e2a23;
+  font-size: 20px;
+  letter-spacing: -0.4px;
+}
+
+.home-footer {
+  width: min(100%, 760px);
+  margin-top: auto;
+  padding: 24px 0 2px;
+  color: #7c8781;
+  font-size: 11px;
+}
+
+@media (max-width: 480px) {
+  .nav-actions {
+    gap: 12px;
+  }
+}

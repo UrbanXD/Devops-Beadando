@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import "./ProfilePage.css";
 import { authenticatedFetch, clearAccessToken } from "../lib/session";
 
 type Profile = {
