@@ -41,6 +41,17 @@ GitHub Actions minden pushnál és pull requestnél lefuttatja a backendteszteke
 
 Debian/Ubuntu rendszeren, ha a virtuális környezet létrehozása nem sikerül: `sudo apt install python3-venv`.
 
+**Frontend build ellenőrzése Dockerrel:**
+
+```sh
+docker run --rm \
+  -v "$PWD/frontend:/app" \
+  -v /app/node_modules \
+  -w /app \
+  node:22-bookworm-slim \
+  sh -c 'npm ci && npm run build'
+```
+
 ## API-funkciók
 
 - `POST /api/auth/register` — regisztráció e-mail-címmel és jelszóval.
