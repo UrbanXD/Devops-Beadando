@@ -9,7 +9,13 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import RefreshSession, User
-from app.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.schemas import (
+    DeleteAccountRequest,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+)
 from app.security import (
     create_access_token,
     create_refresh_session,
@@ -213,3 +219,22 @@ def logout(
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: Annotated[User, Depends(get_current_user)]) -> User:
     return current_user
+
+
+@router.delete("/me")
+def delete_account(
+    request: DeleteAccountRequest,
+    response: Response,
+    database: DatabaseSession,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, str]:
+    if not verify_password(request.password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A megadott jelszó nem megfelelő.",
+        )
+
+    database.delete(current_user)
+    database.commit()
+    clear_refresh_cookie(response)
+    return {"status": "account_deleted"}
