@@ -33,15 +33,20 @@ Az API-tesztek külön, memóriabeli SQLite-adatbázist használnak.
 
 GitHub Actions minden pushnál és pull requestnél lefuttatja a backendteszteket és a frontend buildet, ellenőrzi a titkokat és a függőségek ismert sérülékenységeit, valamint megvizsgálja a Docker image-eket. A Trivy a munkafát, a TruffleHog a teljes Git-előzményt ellenőrzi. A konténer image-ek egyszer épülnek fel, majd artifactként jutnak el a külön vizsgálati jobba. A konténer scan jelentése a forrás commitot, a futás azonosítóját, a Trivy verzióját és az elérhető sérülékenységi adatbázis adatait is tartalmazza. A frontend buildje és a Python-, npm-, image- és history-vizsgálatok jelentései CI artifactként letölthetők. A build és a vizsgálati jelentések 14 napig, a vizsgálatra átadott image-ek 3 napig, az SBOM-ok 30 napig érhetők el. A workflow külső GitHub Actionjei teljes commit SHA alapján vannak rögzítve.
 
-**Git-előzmények titokvizsgálata:** `bash scripts/scan-git-history-secrets.sh`. Teljes Git-klón és Docker szükséges. A `reports/git-history-secret-scan.json` az eredményt, a `reports/git-history-secret-findings.json` a találatok commitját és fájlját tartalmazza. Titokérték egyik jelentésbe sem kerül.
+**Helyi CI-ellenőrzések:** a workflow összetettebb lépéseit külön Bash scriptek futtatják. A jelentések a `reports/` mappába kerülnek.
+
+- Munkafa titokvizsgálata: `bash scripts/scan-worktree-secrets.sh`.
+- Git-előzmények titokvizsgálata: `bash scripts/scan-git-history-secrets.sh`.
+- Python-függőségek vizsgálata: `bash scripts/audit-python-dependencies.sh`.
+- Frontend-függőségek vizsgálata: `bash scripts/audit-frontend-dependencies.sh`.
+- Docker image-ek buildelése és artifact készítése: `bash scripts/build-container-artifact.sh`.
+- Image-ek ellenőrzése és SBOM készítése: `bash scripts/scan-container-images.sh reports reports`.
+
+Docker-ellenőrzésekhez működő Docker és internetkapcsolat szükséges. A Python audit a `backend/requirements-dev.txt` fájlban lévő `pip-audit` csomagot használja, ezért annak telepítése is szükséges a `.venv`-be. A frontend audit npm-et igényel. A `reports/converter-images.tar.gz` az image artifact, a hozzá tartozó `.sha256` fájl az ellenőrzőösszeg. A titokvizsgálati jelentés a találat helyét és típusát tartalmazza, titokértéket nem.
 
 **Git-előzmények scan próbája:** `bash scripts/test-git-history-secrets.sh`. A script ideiglenes Git-tárolóban mesterséges tokent ad hozzá, törli, majd ellenőrzi, hogy a history scan megtalálja-e.
 
 A helyi `.env` fájl nem kerülhet a Gitbe. Az `.env.example` kizárólag helyi fejlesztési minta, éles hitelesítő adatot nem tartalmazhat. A CI jelenleg nem igényel valódi hozzáférési titkot. Ha később szükség lesz rá, azt a GitHub Actions titokkezelőjében kell tárolni, nem a workflow fájlban.
-
-**Python-függőségek ellenőrzése:** `.venv/bin/python -m pip_audit -r backend/requirements.txt -r backend/requirements-dev.txt`.
-
-**Frontend-függőségek ellenőrzése:** `cd frontend && npm audit --audit-level=high`.
 
 **Virtuális környezet létrehozása:** `python3 -m venv .venv`.
 
