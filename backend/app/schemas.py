@@ -28,3 +28,14 @@ class UserResponse(BaseModel):
     id: int
     email: EmailStr
     created_at: datetime
+
+
+class ConversionHistoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source_filename: str
+    direction: str
+    output_filename: str
+    output_size_bytes: int
+    created_at: datetime

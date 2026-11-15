@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent, DragEvent, FormEvent } from "react";
 import "./ConverterWorkspace.css";
+import { authenticatedFetch } from "../lib/session";
 
 type ConversionDirection = "pdf-to-docx" | "docx-to-pdf";
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -82,7 +83,7 @@ export default function ConverterWorkspace() {
     formData.append("file", selectedFile);
 
     try {
-      const response = await fetch(`/api/conversions/${direction}`, {
+      const response = await authenticatedFetch(`/api/conversions/${direction}`, {
         method: "POST",
         body: formData,
       });
@@ -101,8 +102,9 @@ export default function ConverterWorkspace() {
       const objectUrl = URL.createObjectURL(await response.blob());
       const downloadLink = document.createElement("a");
       downloadLink.href = objectUrl;
-      downloadLink.download =
-        direction === "pdf-to-docx" ? "converted.docx" : "converted.pdf";
+      const sourceStem = selectedFile.name.replace(/\.[^/.]+$/, "") || "document";
+      const outputExtension = direction === "pdf-to-docx" ? ".docx" : ".pdf";
+      downloadLink.download = `${sourceStem}${outputExtension}`;
       document.body.append(downloadLink);
       downloadLink.click();
       downloadLink.remove();

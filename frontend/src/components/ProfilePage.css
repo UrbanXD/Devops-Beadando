@@ -171,7 +171,7 @@
   margin-top: 18px;
 }
 
-.history-card p {
+.history-empty {
   display: grid;
   min-height: 112px;
   margin: 16px 0 0;
@@ -183,6 +183,68 @@
   font-size: 14px;
 }
 
+.history-error {
+  margin: 14px 0 0;
+  color: #b64237;
+  font-size: 14px;
+}
+
+.history-list {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid #e5eae6;
+  border-radius: 8px;
+  background: #fafcfb;
+}
+
+.history-entry-details {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: #68756d;
+  font-size: 13px;
+}
+
+.history-entry-filename {
+  overflow-wrap: anywhere;
+  color: #26342c;
+  font-size: 14px;
+}
+
+.history-download-button {
+  flex: none;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #cbd8cf;
+  border-radius: 7px;
+  background: #fff;
+  color: #315842;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history-download-button:hover:not(:disabled) {
+  border-color: #98b5a2;
+  background: #f2f7f3;
+}
+
+.history-download-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 @media (max-width: 480px) {
   .profile-card {
     align-items: stretch;
@@ -191,6 +253,11 @@
 
   .profile-actions > button {
     flex: 1;
+  }
+
+  .history-entry {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .delete-account-form {

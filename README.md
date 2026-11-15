@@ -2,7 +2,7 @@
 
 Ez a projekt PDF- és DOCX-dokumentumok átalakítására szolgáló webalkalmazás. A backend Python és FastAPI, a frontend React és TypeScript, az adattárolás PostgreSQL-alapú.
 
-A jelenlegi verzióban regisztráció, bejelentkezés, profiladatok megtekintése, kijelentkezés, fióktörlés és PDF ↔ DOCX konverzió érhető el. A konvertálás bejelentkezés nélkül is használható. A konverzió előzményeinek tárolása még nincs bekötve. Egy fájl legfeljebb 25 MB lehet; a feltöltött és átalakított fájlok ideiglenes könyvtárba kerülnek, majd a letöltés után törlődnek.
+A jelenlegi verzióban regisztráció, bejelentkezés, profiladatok megtekintése, kijelentkezés, fióktörlés és PDF ↔ DOCX konverzió érhető el. A konvertálás bejelentkezés nélkül is használható. A bejelentkezett felhasználók konverziói megjelennek a profiloldal előzményeiben, és az eredményfájlok onnan újra letölthetők. A vendégként végzett konverziók nem kerülnek mentésre. Egy fájl legfeljebb 25 MB lehet. A bejelentkezett felhasználók eredményei a `STORAGE_PATH` könyvtárba kerülnek; Docker Compose esetén a `converter-data` volume őrzi meg őket. A fiók törlése a mentett eredményeket is eltávolítja.
 
 ## Helyi környezet reprodukálása
 
@@ -62,6 +62,8 @@ docker run --rm \
 - `DELETE /api/auth/me` — saját fiók törlése jelszóval megerősítve.
 - `POST /api/conversions/pdf-to-docx` — PDF fájl átalakítása DOCX dokumentummá; a `file` mező multipart fájlfeltöltést vár.
 - `POST /api/conversions/docx-to-pdf` — DOCX dokumentum átalakítása PDF-fé; a `file` mező multipart fájlfeltöltést vár.
+- `GET /api/conversions/history` — a bejelentkezett felhasználó saját konverziós előzményei.
+- `GET /api/conversions/history/{conversion_id}/download` — saját konverzió eredményfájljának letöltése.
 
 A PDF → DOCX átalakítást a `pdf2docx`, a DOCX → PDF átalakítást a Docker-képbe telepített LibreOffice végzi. A LibreOffice helyi futtatásához külön telepítése szükséges.
 

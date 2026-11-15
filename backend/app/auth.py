@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.conversion_storage import delete_user_conversion_outputs
 from app.models import RefreshSession, User
 from app.schemas import (
     DeleteAccountRequest,
@@ -239,7 +240,9 @@ def delete_account(
             detail="A megadott jelszó nem megfelelő.",
         )
 
+    user_id = current_user.id
     database.delete(current_user)
     database.commit()
+    delete_user_conversion_outputs(user_id)
     clear_refresh_cookie(response)
     return {"status": "account_deleted"}

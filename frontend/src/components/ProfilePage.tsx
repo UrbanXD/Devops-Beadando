@@ -7,12 +7,39 @@ type Profile = {
   email: string;
 };
 
+type ConversionHistoryEntry = {
+  id: number;
+  source_filename: string;
+  direction: "pdf-to-docx" | "docx-to-pdf";
+  output_filename: string;
+  output_size_bytes: number;
+  created_at: string;
+};
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("hu-HU", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [conversionHistory, setConversionHistory] = useState<ConversionHistoryEntry[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [historyError, setHistoryError] = useState("");
+  const [downloadError, setDownloadError] = useState("");
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const deleteDialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -41,6 +68,81 @@ export default function ProfilePage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!profile) return;
+
+    let cancelled = false;
+    authenticatedFetch("/api/conversions/history")
+      .then(async (response) => {
+        if (!response.ok) {
+          const problem = (await response.json().catch(() => ({}))) as {
+            detail?: unknown;
+          };
+          throw new Error(
+            typeof problem.detail === "string"
+              ? problem.detail
+              : "Nem sikerült betölteni az előzményeket.",
+          );
+        }
+        return (await response.json()) as ConversionHistoryEntry[];
+      })
+      .then((history) => {
+        if (!cancelled) setConversionHistory(history);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setHistoryError(
+            error instanceof Error
+              ? error.message
+              : "Nem sikerült betölteni az előzményeket.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingHistory(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profile]);
+
+  async function downloadConversion(entry: ConversionHistoryEntry) {
+    setDownloadingId(entry.id);
+    setDownloadError("");
+
+    try {
+      const response = await authenticatedFetch(
+        `/api/conversions/history/${entry.id}/download`,
+      );
+      if (!response.ok) {
+        const problem = (await response.json().catch(() => ({}))) as {
+          detail?: unknown;
+        };
+        throw new Error(
+          typeof problem.detail === "string"
+            ? problem.detail
+            : "Nem sikerült letölteni a fájlt.",
+        );
+      }
+
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const downloadLink = document.createElement("a");
+      downloadLink.href = objectUrl;
+      downloadLink.download = entry.output_filename;
+      document.body.append(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (error: unknown) {
+      setDownloadError(
+        error instanceof Error ? error.message : "Nem sikerült letölteni a fájlt.",
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   async function logOut() {
     try {
@@ -137,7 +239,39 @@ export default function ProfilePage() {
 
         <section className="history-card" aria-labelledby="history-heading">
           <h2 id="history-heading">Előzmények</h2>
-          <p>Fejlesztés alatt</p>
+          {isLoadingHistory ? (
+            <p className="history-empty" role="status">Előzmények betöltése…</p>
+          ) : historyError ? (
+            <p className="history-error" role="alert">{historyError}</p>
+          ) : conversionHistory.length === 0 ? (
+            <p className="history-empty">Még nincs mentett konverzió.</p>
+          ) : (
+            <ul className="history-list">
+              {conversionHistory.map((entry) => (
+                <li className="history-entry" key={entry.id}>
+                  <div className="history-entry-details">
+                    <strong className="history-entry-filename">{entry.source_filename}</strong>
+                    <span>
+                      {entry.direction === "pdf-to-docx" ? "PDF → DOCX" : "DOCX → PDF"}
+                    </span>
+                    <span>
+                      {formatDate(entry.created_at)} · {formatFileSize(entry.output_size_bytes)}
+                    </span>
+                  </div>
+                  <button
+                    className="history-download-button"
+                    type="button"
+                    aria-label={`Letöltés: ${entry.output_filename}`}
+                    onClick={() => void downloadConversion(entry)}
+                    disabled={downloadingId !== null}
+                  >
+                    {downloadingId === entry.id ? "Letöltés…" : "Letöltés"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {downloadError && <p className="history-error" role="alert">{downloadError}</p>}
         </section>
       </div>
 
