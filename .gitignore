@@ -12,6 +12,7 @@ dist/
 # Local configuration and generated data
 .env
 data/
+storage/
 coverage/
 .coverage
 

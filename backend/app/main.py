@@ -5,11 +5,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.auth import router as auth_router
+from app.conversion import router as conversion_router
 from app.database import get_db
 
 app = FastAPI(
     title="PDF ↔ DOCX konverter API",
-    description="Kezdő API a PDF és DOCX dokumentumok konvertálásához.",
+    description="Felhasználói fiókok kezelése és PDF ↔ DOCX dokumentumkonverzió.",
     version="0.1.0",
 )
 
@@ -22,6 +23,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(conversion_router)
 
 
 @app.get("/api/health", tags=["rendszer"])

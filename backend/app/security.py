@@ -92,3 +92,18 @@ def get_current_user(
         raise unauthorized()
 
     return user
+
+
+def get_optional_current_user(
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(bearer_scheme)
+    ],
+    database: Annotated[Session, Depends(get_db)],
+) -> User | None:
+    if credentials is None:
+        return None
+
+    try:
+        return get_current_user(credentials, database)
+    except HTTPException:
+        return None

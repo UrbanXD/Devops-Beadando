@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import "./LoginRegisterPage.css";
 import {
   authenticatedFetch,
   clearAccessToken,

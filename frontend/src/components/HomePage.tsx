@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import ConverterWorkspace from "./ConverterWorkspace";
+import "./HomePage.css";
 import {
   authenticatedFetch,
   clearAccessToken,
@@ -62,19 +64,17 @@ export default function HomePage() {
         <p className="eyebrow">DOKUMENTUMKEZELÉS</p>
         <h1 id="home-title">PDF és DOCX,<br />egyszerűen.</h1>
         <p className="subtitle">
-          Egy helyen kezelheted a dokumentumok átalakítását. A munkafelület már
-          elérhető, a konverziós funkciók fejlesztése folyamatban van.
+          Válaszd ki a konverzió irányát, majd add hozzá a dokumentumot. A konvertáláshoz
+          nem szükséges bejelentkezni.
         </p>
       </section>
 
       <section className="workspace-card" id="workspace" aria-labelledby="workspace-title">
         <header className="workspace-header">
           <p className="eyebrow">MUNKAFELÜLET</p>
-          <h2 id="workspace-title">Dokumentum átalakítása</h2>
+          <h2 id="workspace-title">PDF és DOCX konvertálása</h2>
         </header>
-        <div className="input-placeholder" role="status">
-          Fejlesztés alatt
-        </div>
+        <ConverterWorkspace />
       </section>
 
       <footer className="home-footer">PDF ↔ DOCX konverter</footer>
