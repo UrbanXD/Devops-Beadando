@@ -1,8 +1,8 @@
 # PDF ↔ DOCX konverter
 
-Ez a projekt egy PDF- és DOCX-dokumentumok átalakítására készülő webalkalmazás. A backend Python és FastAPI, a frontend React és TypeScript, az adattárolás PostgreSQL-alapú.
+Ez a projekt PDF- és DOCX-dokumentumok átalakítására szolgáló webalkalmazás. A backend Python és FastAPI, a frontend React és TypeScript, az adattárolás PostgreSQL-alapú.
 
-A jelenlegi verzióban regisztráció, bejelentkezés, profiladatok megtekintése, kijelentkezés és fióktörlés érhető el. A főoldalon található konverziós munkafelület még fejlesztés alatt áll.
+A jelenlegi verzióban regisztráció, bejelentkezés, profiladatok megtekintése, kijelentkezés, fióktörlés és PDF ↔ DOCX konverzió érhető el. A konvertálás bejelentkezés nélkül is használható. A konverzió előzményeinek tárolása még nincs bekötve. Egy fájl legfeljebb 25 MB lehet; a feltöltött és átalakított fájlok ideiglenes könyvtárba kerülnek, majd a letöltés után törlődnek.
 
 ## Helyi környezet reprodukálása
 
@@ -60,6 +60,10 @@ docker run --rm \
 - `POST /api/auth/logout` — refresh session visszavonása és cookie törlése.
 - `GET /api/auth/me` — bejelentkezett felhasználó adatainak lekérése.
 - `DELETE /api/auth/me` — saját fiók törlése jelszóval megerősítve.
+- `POST /api/conversions/pdf-to-docx` — PDF fájl átalakítása DOCX dokumentummá; a `file` mező multipart fájlfeltöltést vár.
+- `POST /api/conversions/docx-to-pdf` — DOCX dokumentum átalakítása PDF-fé; a `file` mező multipart fájlfeltöltést vár.
+
+A PDF → DOCX átalakítást a `pdf2docx`, a DOCX → PDF átalakítást a Docker-képbe telepített LibreOffice végzi. A LibreOffice helyi futtatásához külön telepítése szükséges.
 
 A jelszavak Argon2 hashként, a refresh tokenek SHA-256 hashként kerülnek az adatbázisba. A refresh token HttpOnly, SameSite=Lax cookie-ban van, és minden frissítéskor új tokenre cserélődik. Az access token alapértelmezett élettartama 15 perc, a refresh tokené legfeljebb 30 nap. Éles HTTPS-környezetben a `REFRESH_COOKIE_SECURE=true` beállítás szükséges.
 

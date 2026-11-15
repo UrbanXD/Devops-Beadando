@@ -64,8 +64,8 @@ export default function HomePage() {
         <p className="eyebrow">DOKUMENTUMKEZELÉS</p>
         <h1 id="home-title">PDF és DOCX,<br />egyszerűen.</h1>
         <p className="subtitle">
-          Válaszd ki a konverzió irányát, majd add hozzá a dokumentumot. A tényleges
-          átalakítás bekötése még folyamatban van.
+          Válaszd ki a konverzió irányát, majd add hozzá a dokumentumot. A konvertáláshoz
+          nem szükséges bejelentkezni.
         </p>
       </section>
 

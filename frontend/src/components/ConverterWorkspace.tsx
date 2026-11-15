@@ -3,6 +3,7 @@ import type { ChangeEvent, DragEvent, FormEvent } from "react";
 import "./ConverterWorkspace.css";
 
 type ConversionDirection = "pdf-to-docx" | "docx-to-pdf";
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
 function requiredExtension(direction: ConversionDirection): string {
   return direction === "pdf-to-docx" ? ".pdf" : ".docx";
@@ -18,6 +19,7 @@ export default function ConverterWorkspace() {
   const [direction, setDirection] = useState<ConversionDirection>("pdf-to-docx");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -29,6 +31,12 @@ export default function ConverterWorkspace() {
     if (!file.name.toLowerCase().endsWith(requiredExtension(direction))) {
       setSelectedFile(null);
       setErrorMessage(`Ehhez az irányhoz ${requiredExtension(direction)} fájl szükséges.`);
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setSelectedFile(null);
+      setErrorMessage("A fájl legfeljebb 25 MB lehet.");
       return;
     }
 
@@ -44,6 +52,7 @@ export default function ConverterWorkspace() {
   function handleDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
     setIsDragging(false);
+    if (isConverting) return;
     chooseFile(event.dataTransfer.files[0]);
   }
 
@@ -61,18 +70,60 @@ export default function ConverterWorkspace() {
     setErrorMessage("");
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedFile) return;
+    if (!selectedFile || isConverting) return;
 
-    setStatusMessage(
-      "A konverziós API még nincs bekötve. A fájl egyelőre nem kerül feltöltésre.",
-    );
+    setErrorMessage("");
+    setStatusMessage("A dokumentum konvertálása folyamatban van…");
+    setIsConverting(true);
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    try {
+      const response = await fetch(`/api/conversions/${direction}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const problem = (await response.json().catch(() => ({}))) as {
+          detail?: string | Array<{ msg?: string }>;
+        };
+        const message =
+          typeof problem.detail === "string"
+            ? problem.detail
+            : problem.detail?.[0]?.msg;
+        throw new Error(message || "Nem sikerült konvertálni a fájlt. Próbáld újra.");
+      }
+
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const downloadLink = document.createElement("a");
+      downloadLink.href = objectUrl;
+      downloadLink.download =
+        direction === "pdf-to-docx" ? "converted.docx" : "converted.pdf";
+      document.body.append(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+
+      setStatusMessage("A konvertált fájl letöltése elindult.");
+    } catch (error: unknown) {
+      setStatusMessage("");
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Nem sikerült konvertálni a fájlt. Próbáld újra.",
+      );
+    } finally {
+      setIsConverting(false);
+    }
   }
 
   return (
     <form className="converter-form" onSubmit={handleSubmit}>
-      <fieldset className="conversion-direction">
+      <fieldset className="conversion-direction" disabled={isConverting}>
         <legend>Konverzió iránya</legend>
         <div className="conversion-direction-options">
           <label className={`conversion-option ${direction === "pdf-to-docx" ? "active" : ""}`}>
@@ -108,6 +159,7 @@ export default function ConverterWorkspace() {
         htmlFor="converter-file"
         onDragOver={(event) => {
           event.preventDefault();
+          if (isConverting) return;
           setIsDragging(true);
         }}
         onDragLeave={(event) => {
@@ -122,13 +174,19 @@ export default function ConverterWorkspace() {
           className="converter-file-input"
           id="converter-file"
           type="file"
-          accept={direction === "pdf-to-docx" ? ".pdf,application/pdf" : ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+          accept={
+            direction === "pdf-to-docx"
+              ? ".pdf,application/pdf"
+              : ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          }
+          disabled={isConverting}
           onChange={handleFileChange}
         />
         <span className="converter-upload-icon" aria-hidden="true">↑</span>
         <span className="converter-dropzone-title">Húzd ide a fájlt, vagy tallózd be</span>
         <span className="converter-dropzone-hint">
-          Ehhez az irányhoz {requiredExtension(direction)} fájl választható.
+          Ehhez az irányhoz {requiredExtension(direction)} fájl választható,
+          legfeljebb 25 MB méretben.
         </span>
         <span className="converter-file-picker">Fájl kiválasztása</span>
       </label>
@@ -150,6 +208,7 @@ export default function ConverterWorkspace() {
               setStatusMessage("");
               if (fileInputRef.current) fileInputRef.current.value = "";
             }}
+            disabled={isConverting}
           >
             Eltávolítás
           </button>
@@ -158,15 +217,20 @@ export default function ConverterWorkspace() {
 
       {errorMessage && <p className="error-message" role="alert">{errorMessage}</p>}
 
-      <button className="primary-button converter-submit" type="submit" disabled={!selectedFile}>
-        Konvertálás
+      <button
+        className="primary-button converter-submit"
+        type="submit"
+        disabled={!selectedFile || isConverting}
+      >
+        {isConverting ? "Konvertálás…" : "Konvertálás"}
       </button>
 
       {statusMessage ? (
         <p className="converter-status" role="status">{statusMessage}</p>
       ) : (
         <p className="converter-note">
-          A fájl előkészítése működik; a tényleges konvertálás bekötése fejlesztés alatt áll.
+          Bejelentkezés nélkül is használható. Az átalakított fájl letöltése
+          automatikusan elindul.
         </p>
       )}
     </form>
