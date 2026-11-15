@@ -31,9 +31,9 @@ A szolgáltatások leállítása: `docker compose down`.
 
 Az API-tesztek külön, memóriabeli SQLite-adatbázist használnak.
 
-GitHub Actions minden pushnál és pull requestnél lefuttatja a backendteszteket és a frontend buildet, ellenőrzi a titkokat és a függőségek ismert sérülékenységeit, valamint megvizsgálja a Docker image-eket. A Trivy a munkafát, a TruffleHog a teljes Git-előzményt ellenőrzi. A konténer image-ek egyszer épülnek fel, majd artifactként jutnak el a külön vizsgálati jobba. A konténer scan jelentése a forrás commitot, a futás azonosítóját, a Trivy verzióját és az elérhető sérülékenységi adatbázis adatait is tartalmazza. A frontend buildje és a Python-, npm-, image- és history-vizsgálatok jelentései CI artifactként letölthetők. A build és a vizsgálati jelentések 14 napig, a vizsgálatra átadott image-ek 3 napig, az SBOM-ok 30 napig érhetők el. A workflow külső GitHub Actionjei teljes commit SHA alapján vannak rögzítve.
+GitHub Actions minden pushnál és pull requestnél lefuttatja a backendteszteket és a frontend buildet, ellenőrzi a titkokat és a függőségek ismert sérülékenységeit, valamint megvizsgálja a Docker image-eket. A Trivy a munkafát, a TruffleHog a teljes Git-előzményt ellenőrzi. A konténer image-ek egyszer épülnek fel, majd artifactként jutnak el a külön vizsgálati jobba. A konténer scan jelentése a forrás commitot, a futás azonosítóját, a Trivy verzióját és a sérülékenységi adatbázis adatait is tartalmazza. A `Security gate` a jelentések alapján `PASS`, `BLOCK` vagy `ERROR` döntést hoz; hiányzó vagy hibás jelentés `ERROR`. A javítható HIGH/CRITICAL image-sebezhetőség, a HIGH/CRITICAL npm-sebezhetőség, bármely ismert Python-sérülékenység vagy titoktalálat `BLOCK`. A javítás nélküli HIGH/CRITICAL és UNKNOWN image-találatok a riportban maradnak, de nem blokkolják a gate-et; javítható UNKNOWN találat `ERROR`. A push során készült SBOM-okat Cosign keyless aláírás hitelesíti GitHub OIDC-identitással, a kapu pedig ellenőrzi az aláírást és a workflow-identitást. Pull requestnél az SBOM elkészül, aláírás push során készül. A frontend buildje és a vizsgálati jelentések CI artifactként letölthetők. A build és a vizsgálati jelentések 14 napig, a vizsgálatra átadott image-ek 3 napig, az SBOM-ok 30 napig érhetők el. A workflow külső GitHub Actionjei teljes commit SHA alapján vannak rögzítve.
 
-**Helyi CI-ellenőrzések:** a workflow összetettebb lépéseit külön Bash scriptek futtatják. A jelentések a `reports/` mappába kerülnek.
+**Helyi CI-ellenőrzések:** a jelentések a `reports/` mappába kerülnek. A kapu a vizsgálati jelentéseket együtt értékeli, ezért az ellenőrzések futtatási sorrendje:
 
 - Munkafa titokvizsgálata: `bash scripts/scan-worktree-secrets.sh`.
 - Git-előzmények titokvizsgálata: `bash scripts/scan-git-history-secrets.sh`.
@@ -41,8 +41,11 @@ GitHub Actions minden pushnál és pull requestnél lefuttatja a backendteszteke
 - Frontend-függőségek vizsgálata: `bash scripts/audit-frontend-dependencies.sh`.
 - Docker image-ek buildelése és artifact készítése: `bash scripts/build-container-artifact.sh`.
 - Image-ek ellenőrzése és SBOM készítése: `bash scripts/scan-container-images.sh reports reports`.
+- A jelentések policy szerinti kiértékelése: `bash scripts/security-gate.sh reports reports`.
 
 Docker-ellenőrzésekhez működő Docker és internetkapcsolat szükséges. A Python audit a `backend/requirements-dev.txt` fájlban lévő `pip-audit` csomagot használja, ezért annak telepítése is szükséges a `.venv`-be. A frontend audit npm-et igényel. A `reports/converter-images.tar.gz` az image artifact, a hozzá tartozó `.sha256` fájl az ellenőrzőösszeg. A titokvizsgálati jelentés a találat helyét és típusát tartalmazza, titokértéket nem.
+
+**SBOM-aláírás:** a `scripts/sign-sboms.sh` Cosign keyless aláírást készít. A CI-ban GitHub OIDC-token szükséges hozzá, ezért külön, csak push eseménynél futó jobban készül. Az aláírási bundle külön CI artifact, a kapu pedig ellenőrzi az SBOM és az aláíró workflow azonosságát. A merge tiltásához a GitHub branch protectionben a `Security gate` ellenőrzés required status checkként beállítandó.
 
 **Git-előzmények scan próbája:** `bash scripts/test-git-history-secrets.sh`. A script ideiglenes Git-tárolóban mesterséges tokent ad hozzá, törli, majd ellenőrzi, hogy a history scan megtalálja-e.
 

@@ -149,7 +149,7 @@ if docker save "$BACKEND_IMAGE" -o "$TEMP_DIR/backend.tar"; then
   fi
   if run_trivy image --input /temp/backend.tar \
     --scanners vuln --format json --output /reports/backend-image-scan.json \
-    --exit-code 1 --ignore-unfixed --severity HIGH,CRITICAL; then
+    --exit-code 0; then
     BACKEND_SCAN_STATUS=success
   else
     BACKEND_SCAN_EXIT_CODE=$?
@@ -171,7 +171,7 @@ if docker save "$FRONTEND_IMAGE" -o "$TEMP_DIR/frontend.tar"; then
   fi
   if run_trivy image --input /temp/frontend.tar \
     --scanners vuln --format json --output /reports/frontend-image-scan.json \
-    --exit-code 1 --ignore-unfixed --severity HIGH,CRITICAL; then
+    --exit-code 0; then
     FRONTEND_SCAN_STATUS=success
   else
     FRONTEND_SCAN_EXIT_CODE=$?
