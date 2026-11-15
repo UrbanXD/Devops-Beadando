@@ -68,8 +68,12 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Scan repository for secrets
+        id: filesystem_scan
+        continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
@@ -77,6 +81,34 @@ jobs:
           scanners: secret
           format: table
           exit-code: "1"
+
+      - name: Scan Git history for secrets
+        id: history_scan
+        continue-on-error: true
+        run: bash scripts/scan-git-history-secrets.sh
+
+      - name: Save Git history scan report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: git-history-secret-scan-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            reports/git-history-secret-scan.json
+            reports/git-history-secret-findings.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Fail if either secret scan failed
+        if: always()
+        env:
+          FILESYSTEM_SCAN_OUTCOME: ${{ steps.filesystem_scan.outcome }}
+          HISTORY_SCAN_OUTCOME: ${{ steps.history_scan.outcome }}
+        run: |
+          if [ "$FILESYSTEM_SCAN_OUTCOME" != "success" ] || \
+             [ "$HISTORY_SCAN_OUTCOME" != "success" ]; then
+            echo "A secret scan found a result or did not complete."
+            exit 1
+          fi
 
   python-dependency-audit:
     name: Python dependency audit
