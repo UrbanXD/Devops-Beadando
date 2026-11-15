@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
           cache: pip
@@ -35,10 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
@@ -53,7 +53,7 @@ jobs:
         run: npm run build
 
       - name: Save frontend build artifact
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: frontend-dist-${{ github.sha }}-${{ github.run_attempt }}
           path: frontend/dist
@@ -67,7 +67,7 @@ jobs:
       contents: read
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Scan repository for secrets
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -85,10 +85,10 @@ jobs:
       contents: read
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
 
@@ -106,7 +106,7 @@ jobs:
 
       - name: Save audit report
         if: always()
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: python-audit-${{ github.sha }}-${{ github.run_attempt }}
           path: reports/pip-audit.json
@@ -120,10 +120,10 @@ jobs:
       contents: read
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
@@ -137,24 +137,24 @@ jobs:
 
       - name: Save audit report
         if: always()
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: frontend-audit-${{ github.sha }}-${{ github.run_attempt }}
           path: frontend/reports/npm-audit.json
           if-no-files-found: ignore
           retention-days: 14
 
-  container-security:
-    name: Container scan and SBOM
+  container-build:
+    name: Build container images
     runs-on: ubuntu-latest
+    needs:
+      - backend-tests
+      - frontend-build
     permissions:
       contents: read
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Prepare scan report directory
-        run: mkdir -p reports
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build backend image
         run: docker build -t converter-backend:${{ github.sha }} ./backend
@@ -162,12 +162,125 @@ jobs:
       - name: Build frontend image
         run: docker build -t converter-frontend:${{ github.sha }} ./frontend
 
+      - name: Save images and build manifest
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -o pipefail
+          mkdir -p container-artifact
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          images = {
+              "backend": f"converter-backend:{os.environ['SOURCE_SHA']}",
+              "frontend": f"converter-frontend:{os.environ['SOURCE_SHA']}",
+          }
+          manifest = {
+              "format_version": 1,
+              "source_sha": os.environ["SOURCE_SHA"],
+              "repository": os.environ["REPOSITORY"],
+              "run_id": os.environ["RUN_ID"],
+              "run_attempt": os.environ["RUN_ATTEMPT"],
+              "built_at_utc": datetime.now(timezone.utc).isoformat(),
+              "images": {},
+          }
+          for name, reference in images.items():
+              image_id = subprocess.check_output(
+                  ["docker", "image", "inspect", "--format", "{{.Id}}", reference],
+                  text=True,
+              ).strip()
+              manifest["images"][name] = {
+                  "reference": reference,
+                  "image_id": image_id,
+              }
+
+          Path("container-artifact/container-image-manifest.json").write_text(
+              json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
+          docker save \
+            converter-backend:${{ github.sha }} \
+            converter-frontend:${{ github.sha }} \
+            | gzip -1 > container-artifact/converter-images.tar.gz
+          cd container-artifact
+          sha256sum converter-images.tar.gz > converter-images.tar.gz.sha256
+
+      - name: Save images for scanning
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: container-images-${{ github.sha }}-${{ github.run_attempt }}
+          path: container-artifact/
+          if-no-files-found: error
+          retention-days: 3
+
+  container-security:
+    name: Container scan and SBOM
+    runs-on: ubuntu-latest
+    needs: container-build
+    permissions:
+      contents: read
+    steps:
+      - name: Download images for scanning
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: container-images-${{ github.sha }}-${{ github.run_attempt }}
+          path: container-artifact
+
+      - name: Verify and load built images
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -o pipefail
+          cd container-artifact
+          sha256sum --check converter-images.tar.gz.sha256
+          gzip -dc converter-images.tar.gz | docker load
+          cp container-image-manifest.json ../container-image-manifest.json
+          cd ..
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          manifest = json.loads(
+              Path("container-image-manifest.json").read_text(encoding="utf-8")
+          )
+          expected_run = {
+              "source_sha": os.environ["SOURCE_SHA"],
+              "run_id": os.environ["RUN_ID"],
+              "run_attempt": os.environ["RUN_ATTEMPT"],
+          }
+          for key, value in expected_run.items():
+              if manifest.get(key) != value:
+                  raise SystemExit(f"Container image manifest does not match this run: {key}")
+
+          for image in manifest["images"].values():
+              loaded_id = subprocess.check_output(
+                  ["docker", "image", "inspect", "--format", "{{.Id}}", image["reference"]],
+                  text=True,
+              ).strip()
+              if loaded_id != image["image_id"]:
+                  raise SystemExit(f"Loaded image ID does not match: {image['reference']}")
+          PY
+
+      - name: Prepare scan report directory
+        run: mkdir -p reports
+
       - name: Generate backend SBOM
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: converter-backend:${{ github.sha }}
           format: spdx-json
-          output-file: backend-sbom.spdx.json
+          output-file: reports/backend-sbom.spdx.json
           upload-artifact: false
           upload-release-assets: false
 
@@ -176,7 +289,7 @@ jobs:
         with:
           image: converter-frontend:${{ github.sha }}
           format: spdx-json
-          output-file: frontend-sbom.spdx.json
+          output-file: reports/frontend-sbom.spdx.json
           upload-artifact: false
           upload-release-assets: false
 
@@ -192,6 +305,7 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+          cache-dir: ${{ github.workspace }}/.cache/trivy
 
       - name: Scan frontend image
         id: frontend_scan
@@ -205,25 +319,107 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+          cache-dir: ${{ github.workspace }}/.cache/trivy
+
+      - name: Save container scan metadata
+        if: always()
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          REPOSITORY: ${{ github.repository }}
+          BACKEND_SCAN_OUTCOME: ${{ steps.backend_scan.outcome }}
+          FRONTEND_SCAN_OUTCOME: ${{ steps.frontend_scan.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import shutil
+          import subprocess
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          report_directory = Path("reports")
+          report_directory.mkdir(exist_ok=True)
+          version = None
+          trivy = shutil.which("trivy")
+          if trivy:
+              result = subprocess.run(
+                  [trivy, "--version"], check=False, capture_output=True, text=True
+              )
+              match = re.search(r"^Version:\s*(.+)$", result.stdout, re.MULTILINE)
+              if match:
+                  version = match.group(1).strip()
+
+          if version is None:
+              for report_path in report_directory.glob("*-image-scan.json"):
+                  try:
+                      report = json.loads(report_path.read_text(encoding="utf-8"))
+                      version = report.get("Trivy", {}).get("Version")
+                      if version:
+                          break
+                  except (OSError, json.JSONDecodeError):
+                      pass
+
+          db_metadata_path = Path(".cache/trivy/db/metadata.json")
+          try:
+              db_metadata = json.loads(db_metadata_path.read_text(encoding="utf-8"))
+          except (OSError, json.JSONDecodeError):
+              db_metadata = None
+
+          manifest_path = Path("container-image-manifest.json")
+          try:
+              image_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          except (OSError, json.JSONDecodeError):
+              image_manifest = None
+          if image_manifest is not None:
+              (report_directory / "container-image-manifest.json").write_text(
+                  json.dumps(image_manifest, indent=2) + "\n", encoding="utf-8"
+              )
+
+          metadata = {
+              "source_sha": os.environ["SOURCE_SHA"],
+              "repository": os.environ["REPOSITORY"],
+              "run_id": os.environ["RUN_ID"],
+              "run_attempt": os.environ["RUN_ATTEMPT"],
+              "scanned_at_utc": datetime.now(timezone.utc).isoformat(),
+              "scanner": {"name": "Trivy", "version": version},
+              "vulnerability_database": db_metadata,
+              "image_manifest": image_manifest,
+              "scan_outcomes": {
+                  "backend": os.environ["BACKEND_SCAN_OUTCOME"],
+                  "frontend": os.environ["FRONTEND_SCAN_OUTCOME"],
+              },
+          }
+          (report_directory / "container-scan-metadata.json").write_text(
+              json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
 
       - name: Save container scan reports
         if: always()
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: container-scan-reports-${{ github.sha }}-${{ github.run_attempt }}
           path: |
-            reports/*.json
+            reports/backend-image-scan.json
+            reports/frontend-image-scan.json
+            reports/container-scan-metadata.json
+            reports/container-image-manifest.json
           if-no-files-found: ignore
           retention-days: 14
 
       - name: Save image SBOMs
         if: always()
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: image-sboms-${{ github.sha }}-${{ github.run_attempt }}
           path: |
-            backend-sbom.spdx.json
-            frontend-sbom.spdx.json
+            reports/backend-sbom.spdx.json
+            reports/frontend-sbom.spdx.json
+            reports/container-image-manifest.json
+            reports/container-scan-metadata.json
           if-no-files-found: ignore
           retention-days: 30
 

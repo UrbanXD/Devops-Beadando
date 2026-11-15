@@ -31,7 +31,7 @@ A szolgáltatások leállítása: `docker compose down`.
 
 Az API-tesztek külön, memóriabeli SQLite-adatbázist használnak.
 
-GitHub Actions minden pushnál és pull requestnél lefuttatja a backendteszteket és a frontend buildet, ellenőrzi a titkokat és a függőségek ismert sérülékenységeit, valamint megvizsgálja a Docker image-eket. A frontend buildje és a Python-, npm- és image-vizsgálatok jelentései CI artifactként letölthetők, a titokvizsgálat eredménye a workflow naplójában jelenik meg. A build és a vizsgálati jelentések 14 napig, az SBOM-ok 30 napig érhetők el.
+GitHub Actions minden pushnál és pull requestnél lefuttatja a backendteszteket és a frontend buildet, ellenőrzi a titkokat és a függőségek ismert sérülékenységeit, valamint megvizsgálja a Docker image-eket. A konténer image-ek egyszer épülnek fel, majd artifactként jutnak el a külön vizsgálati jobba. A scan jelentései metaadatként tartalmazzák a forrás commitot, a futás azonosítóját, a Trivy verzióját és az elérhető sérülékenységi adatbázis adatait. A frontend buildje és a Python-, npm- és image-vizsgálatok jelentései CI artifactként letölthetők, a titokvizsgálat eredménye a workflow naplójában jelenik meg. A build és a vizsgálati jelentések 14 napig, a vizsgálatra átadott image-ek 3 napig, az SBOM-ok 30 napig érhetők el. A workflow külső GitHub Actionjei teljes commit SHA alapján vannak rögzítve.
 
 A helyi `.env` fájl nem kerülhet a Gitbe. Az `.env.example` kizárólag helyi fejlesztési minta, éles hitelesítő adatot nem tartalmazhat. A CI jelenleg nem igényel valódi hozzáférési titkot. Ha később szükség lesz rá, azt a GitHub Actions titokkezelőjében kell tárolni, nem a workflow fájlban.
 
