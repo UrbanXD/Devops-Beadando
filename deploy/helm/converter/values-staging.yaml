@@ -1,0 +1,17 @@
+environment: staging
+
+image:
+  backend:
+    pullPolicy: Never
+  frontend:
+    pullPolicy: Never
+
+api:
+  replicas: 1
+  storageSize: 2Gi
+
+web:
+  replicas: 1
+
+postgres:
+  storageSize: 5Gi

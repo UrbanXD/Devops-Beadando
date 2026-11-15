@@ -1,0 +1,46 @@
+environment: development
+
+image:
+  backend:
+    repository: converter-backend
+    tag: local
+    pullPolicy: IfNotPresent
+  frontend:
+    repository: converter-frontend
+    tag: local
+    pullPolicy: IfNotPresent
+
+api:
+  replicas: 1
+  storageSize: 1Gi
+  accessTokenExpireMinutes: 15
+  refreshTokenExpireDays: 30
+  refreshCookieSecure: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+web:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+postgres:
+  image: postgres:17-alpine
+  storageSize: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
