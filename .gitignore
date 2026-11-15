@@ -15,6 +15,7 @@ data/
 storage/
 coverage/
 .coverage
+reports/
 
 # Editors and OS
 .idea/

@@ -51,3 +51,190 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+
+      - name: Save frontend build artifact
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: frontend-dist-${{ github.sha }}-${{ github.run_attempt }}
+          path: frontend/dist
+          if-no-files-found: error
+          retention-days: 14
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Scan repository for secrets
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret
+          format: table
+          exit-code: "1"
+
+  python-dependency-audit:
+    name: Python dependency audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Python audit tools
+        run: python -m pip install -r backend/requirements-dev.txt
+
+      - name: Audit Python dependencies
+        run: |
+          mkdir -p reports
+          pip-audit \
+            -r backend/requirements.txt \
+            -r backend/requirements-dev.txt \
+            --format json \
+            --output reports/pip-audit.json
+
+      - name: Save audit report
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: python-audit-${{ github.sha }}-${{ github.run_attempt }}
+          path: reports/pip-audit.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  frontend-dependency-audit:
+    name: Frontend dependency audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: |
+          mkdir -p reports
+          npm audit --audit-level=high --json > reports/npm-audit.json
+
+      - name: Save audit report
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: frontend-audit-${{ github.sha }}-${{ github.run_attempt }}
+          path: frontend/reports/npm-audit.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  container-security:
+    name: Container scan and SBOM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Prepare scan report directory
+        run: mkdir -p reports
+
+      - name: Build backend image
+        run: docker build -t converter-backend:${{ github.sha }} ./backend
+
+      - name: Build frontend image
+        run: docker build -t converter-frontend:${{ github.sha }} ./frontend
+
+      - name: Generate backend SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: converter-backend:${{ github.sha }}
+          format: spdx-json
+          output-file: backend-sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate frontend SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          image: converter-frontend:${{ github.sha }}
+          format: spdx-json
+          output-file: frontend-sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Scan backend image
+        id: backend_scan
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: converter-backend:${{ github.sha }}
+          scanners: vuln
+          format: json
+          output: reports/backend-image-scan.json
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Scan frontend image
+        id: frontend_scan
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: converter-frontend:${{ github.sha }}
+          scanners: vuln
+          format: json
+          output: reports/frontend-image-scan.json
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Save container scan reports
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: container-scan-reports-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            reports/*.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Save image SBOMs
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: image-sboms-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            backend-sbom.spdx.json
+            frontend-sbom.spdx.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Fail if either container scan failed
+        if: always()
+        env:
+          BACKEND_SCAN_OUTCOME: ${{ steps.backend_scan.outcome }}
+          FRONTEND_SCAN_OUTCOME: ${{ steps.frontend_scan.outcome }}
+        run: |
+          if [ "$BACKEND_SCAN_OUTCOME" != "success" ] || \
+             [ "$FRONTEND_SCAN_OUTCOME" != "success" ]; then
+            echo "A container scan found a high or critical vulnerability, or did not complete."
+            exit 1
+          fi

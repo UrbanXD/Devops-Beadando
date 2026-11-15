@@ -2,8 +2,9 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-COPY package.json ./package.json
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm install --global npm@12.2.2
+RUN npm ci
 
 COPY . .
 

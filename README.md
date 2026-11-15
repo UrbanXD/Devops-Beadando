@@ -31,7 +31,13 @@ A szolgáltatások leállítása: `docker compose down`.
 
 Az API-tesztek külön, memóriabeli SQLite-adatbázist használnak.
 
-GitHub Actions minden pushnál és pull requestnél lefuttatja a backendteszteket, valamint elkészíti a frontend buildet.
+GitHub Actions minden pushnál és pull requestnél lefuttatja a backendteszteket és a frontend buildet, ellenőrzi a titkokat és a függőségek ismert sérülékenységeit, valamint megvizsgálja a Docker image-eket. A frontend buildje és a Python-, npm- és image-vizsgálatok jelentései CI artifactként letölthetők, a titokvizsgálat eredménye a workflow naplójában jelenik meg. A build és a vizsgálati jelentések 14 napig, az SBOM-ok 30 napig érhetők el.
+
+A helyi `.env` fájl nem kerülhet a Gitbe. Az `.env.example` kizárólag helyi fejlesztési minta, éles hitelesítő adatot nem tartalmazhat. A CI jelenleg nem igényel valódi hozzáférési titkot. Ha később szükség lesz rá, azt a GitHub Actions titokkezelőjében kell tárolni, nem a workflow fájlban.
+
+**Python-függőségek ellenőrzése:** `.venv/bin/python -m pip_audit -r backend/requirements.txt -r backend/requirements-dev.txt`.
+
+**Frontend-függőségek ellenőrzése:** `cd frontend && npm audit --audit-level=high`.
 
 **Virtuális környezet létrehozása:** `python3 -m venv .venv`.
 
