@@ -13,8 +13,8 @@ FRONTEND_IMAGE="converter-frontend:$SOURCE_SHA"
 
 mkdir -p "$ARTIFACT_DIR"
 ARTIFACT_DIR="$(cd -- "$ARTIFACT_DIR" && pwd -P)"
-docker build -t "$BACKEND_IMAGE" "$REPO_DIR/backend"
-docker build -t "$FRONTEND_IMAGE" "$REPO_DIR/frontend"
+docker build --pull -t "$BACKEND_IMAGE" "$REPO_DIR/backend"
+docker build --pull -t "$FRONTEND_IMAGE" "$REPO_DIR/frontend"
 
 export SOURCE_SHA RUN_ID RUN_ATTEMPT REPOSITORY BACKEND_IMAGE FRONTEND_IMAGE
 python3 - "$ARTIFACT_DIR/container-image-manifest.json" <<'PY'

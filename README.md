@@ -27,6 +27,10 @@ Az API indulásakor az adatbázis-migrációk automatikusan lefutnak. A PostgreS
 
 A szolgáltatások leállítása: `docker compose down`.
 
+## Kubernetes fejlesztői és staging környezet
+
+Kind-alapú, két elkülönített namespace-es telepítés, verziózott image-ek és Helm-revízióból történő visszaállítás: [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## Automatizált ellenőrzések
 
 Az API-tesztek külön, memóriabeli SQLite-adatbázist használnak.
@@ -94,6 +98,8 @@ A jelszavak Argon2 hashként, a refresh tokenek SHA-256 hashként kerülnek az a
 - `backend/` — FastAPI API, adatmodellek és Alembic-migrációk.
 - `frontend/` — React + TypeScript + Vite felület.
 - `compose.yaml` — helyi fejlesztői környezet.
+- `deploy/helm/converter/` — Kubernetes Helm chart.
+- `DEPLOYMENT.md` — fejlesztői/staging telepítés és visszaállítás.
 - `.env.example` — helyi konfiguráció mintája.
 
 Valódi hozzáférési titok nem kerülhet a Gitbe.
