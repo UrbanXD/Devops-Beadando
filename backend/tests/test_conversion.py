@@ -231,6 +231,14 @@ def test_conversion_history_is_private_and_removed_with_account(
         f"/api/conversions/history/{entry['id']}/download",
         headers=other_authorization,
     ).status_code == 404
+    assert client.delete(
+        f"/api/conversions/history/{entry['id']}",
+        headers=other_authorization,
+    ).status_code == 404
+    owner_history = client.get(
+        "/api/conversions/history", headers=owner_authorization
+    )
+    assert len(owner_history.json()) == 1
     assert client.get("/api/conversions/history").status_code == 401
 
     deleted = client.request(
@@ -241,6 +249,103 @@ def test_conversion_history_is_private_and_removed_with_account(
     )
     assert deleted.status_code == 200
     assert not stored_file.exists()
+
+
+def test_user_can_delete_one_history_entry(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(conversion_storage, "STORAGE_PATH", tmp_path)
+
+    def fake_converter(_source: Path, destination: Path, _workspace: Path) -> None:
+        destination.write_bytes(destination.stem.encode())
+
+    monkeypatch.setattr(conversion, "_convert_docx_to_pdf", fake_converter)
+    registered = client.post(
+        "/api/auth/register",
+        json={"email": "delete-one@example.com", "password": "super-secret-password"},
+    )
+    assert registered.status_code == 201
+    authorization = {"Authorization": f"Bearer {registered.json()['access_token']}"}
+
+    for filename in ("first.docx", "second.docx"):
+        converted = client.post(
+            "/api/conversions/docx-to-pdf",
+            headers=authorization,
+            files={"file": (filename, make_docx(), conversion.DOCX_MIME_TYPE)},
+        )
+        assert converted.status_code == 200
+
+    history = client.get("/api/conversions/history", headers=authorization)
+    entries = history.json()
+    deleted_entry = next(
+        entry for entry in entries if entry["source_filename"] == "first.docx"
+    )
+    remaining_entry = next(
+        entry for entry in entries if entry["source_filename"] == "second.docx"
+    )
+
+    deleted = client.delete(
+        f"/api/conversions/history/{deleted_entry['id']}",
+        headers=authorization,
+    )
+
+    assert deleted.status_code == 200
+    assert deleted.json() == {"status": "deleted"}
+    remaining_history = client.get("/api/conversions/history", headers=authorization)
+    assert [entry["id"] for entry in remaining_history.json()] == [remaining_entry["id"]]
+    assert client.get(
+        f"/api/conversions/history/{deleted_entry['id']}/download",
+        headers=authorization,
+    ).status_code == 404
+    remaining_download = client.get(
+        f"/api/conversions/history/{remaining_entry['id']}/download",
+        headers=authorization,
+    )
+    assert remaining_download.status_code == 200
+    assert remaining_download.content == b"second"
+    assert len(list((tmp_path / "conversions").glob("*/*.pdf"))) == 1
+
+
+def test_user_can_clear_all_history_and_results(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(conversion_storage, "STORAGE_PATH", tmp_path)
+
+    def fake_converter(_source: Path, destination: Path, _workspace: Path) -> None:
+        destination.write_bytes(b"saved result")
+
+    monkeypatch.setattr(conversion, "_convert_docx_to_pdf", fake_converter)
+    registered = client.post(
+        "/api/auth/register",
+        json={"email": "clear-history@example.com", "password": "super-secret-password"},
+    )
+    assert registered.status_code == 201
+    authorization = {"Authorization": f"Bearer {registered.json()['access_token']}"}
+    converted = client.post(
+        "/api/conversions/docx-to-pdf",
+        headers=authorization,
+        files={"file": ("saved.docx", make_docx(), conversion.DOCX_MIME_TYPE)},
+    )
+    assert converted.status_code == 200
+    entry = client.get("/api/conversions/history", headers=authorization).json()[0]
+
+    unauthorized = client.delete("/api/conversions/history")
+    assert unauthorized.status_code == 401
+
+    cleared = client.delete("/api/conversions/history", headers=authorization)
+
+    assert cleared.status_code == 200
+    assert cleared.json() == {"deleted_count": 1}
+    assert client.get("/api/conversions/history", headers=authorization).json() == []
+    assert client.get(
+        f"/api/conversions/history/{entry['id']}/download",
+        headers=authorization,
+    ).status_code == 404
+    assert list((tmp_path / "conversions").glob("*/*.pdf")) == []
 
 
 def test_conversion_rejects_wrong_extension(client: TestClient) -> None:

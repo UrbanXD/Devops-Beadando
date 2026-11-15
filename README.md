@@ -64,6 +64,8 @@ docker run --rm \
 - `POST /api/conversions/docx-to-pdf` — DOCX dokumentum átalakítása PDF-fé; a `file` mező multipart fájlfeltöltést vár.
 - `GET /api/conversions/history` — a bejelentkezett felhasználó saját konverziós előzményei.
 - `GET /api/conversions/history/{conversion_id}/download` — saját konverzió eredményfájljának letöltése.
+- `DELETE /api/conversions/history/{conversion_id}` — egy saját előzmény és eredményfájl törlése.
+- `DELETE /api/conversions/history` — az összes saját előzmény és eredményfájl törlése.
 
 A PDF → DOCX átalakítást a `pdf2docx`, a DOCX → PDF átalakítást a Docker-képbe telepített LibreOffice végzi. A LibreOffice helyi futtatásához külön telepítése szükséges.
 

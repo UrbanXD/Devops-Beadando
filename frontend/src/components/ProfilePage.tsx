@@ -38,8 +38,10 @@ export default function ProfilePage() {
   const [conversionHistory, setConversionHistory] = useState<ConversionHistoryEntry[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [historyError, setHistoryError] = useState("");
+  const [historyActionError, setHistoryActionError] = useState("");
   const [downloadError, setDownloadError] = useState("");
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [historyAction, setHistoryAction] = useState<"clear" | number | null>(null);
   const deleteDialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -144,6 +146,68 @@ export default function ProfilePage() {
     }
   }
 
+  async function deleteHistoryEntry(entry: ConversionHistoryEntry) {
+    setHistoryAction(entry.id);
+    setHistoryActionError("");
+
+    try {
+      const response = await authenticatedFetch(
+        `/api/conversions/history/${entry.id}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        const problem = (await response.json().catch(() => ({}))) as {
+          detail?: unknown;
+        };
+        throw new Error(
+          typeof problem.detail === "string"
+            ? problem.detail
+            : "Nem sikerült törölni az előzményt.",
+        );
+      }
+
+      setConversionHistory((history) => history.filter((item) => item.id !== entry.id));
+    } catch (error: unknown) {
+      setHistoryActionError(
+        error instanceof Error ? error.message : "Nem sikerült törölni az előzményt.",
+      );
+    } finally {
+      setHistoryAction(null);
+    }
+  }
+
+  async function clearHistory() {
+    if (conversionHistory.length === 0 || historyAction !== null) return;
+    if (!window.confirm("Biztosan törlöd az összes előzményt és eredményfájlt?")) return;
+
+    setHistoryAction("clear");
+    setHistoryActionError("");
+
+    try {
+      const response = await authenticatedFetch("/api/conversions/history", {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const problem = (await response.json().catch(() => ({}))) as {
+          detail?: unknown;
+        };
+        throw new Error(
+          typeof problem.detail === "string"
+            ? problem.detail
+            : "Nem sikerült törölni az előzményeket.",
+        );
+      }
+
+      setConversionHistory([]);
+    } catch (error: unknown) {
+      setHistoryActionError(
+        error instanceof Error ? error.message : "Nem sikerült törölni az előzményeket.",
+      );
+    } finally {
+      setHistoryAction(null);
+    }
+  }
+
   async function logOut() {
     try {
       await fetch("/api/auth/logout", {
@@ -238,7 +302,19 @@ export default function ProfilePage() {
         </section>
 
         <section className="history-card" aria-labelledby="history-heading">
-          <h2 id="history-heading">Előzmények</h2>
+          <div className="history-heading">
+            <h2 id="history-heading">Előzmények</h2>
+            {!isLoadingHistory && !historyError && conversionHistory.length > 0 && (
+              <button
+                className="clear-history-button"
+                type="button"
+                onClick={() => void clearHistory()}
+                disabled={historyAction !== null || downloadingId !== null}
+              >
+                {historyAction === "clear" ? "Törlés…" : "Összes törlése"}
+              </button>
+            )}
+          </div>
           {isLoadingHistory ? (
             <p className="history-empty" role="status">Előzmények betöltése…</p>
           ) : historyError ? (
@@ -258,18 +334,33 @@ export default function ProfilePage() {
                       {formatDate(entry.created_at)} · {formatFileSize(entry.output_size_bytes)}
                     </span>
                   </div>
-                  <button
-                    className="history-download-button"
-                    type="button"
-                    aria-label={`Letöltés: ${entry.output_filename}`}
-                    onClick={() => void downloadConversion(entry)}
-                    disabled={downloadingId !== null}
-                  >
-                    {downloadingId === entry.id ? "Letöltés…" : "Letöltés"}
-                  </button>
+                  <div className="history-entry-actions">
+                    <button
+                      className="history-download-button"
+                      type="button"
+                      aria-label={`Letöltés: ${entry.output_filename}`}
+                      onClick={() => void downloadConversion(entry)}
+                      disabled={downloadingId !== null || historyAction !== null}
+                    >
+                      {downloadingId === entry.id ? "Letöltés…" : "Letöltés"}
+                    </button>
+                    <button
+                      className="history-delete-button"
+                      type="button"
+                      aria-label={`Előzmény törlése: ${entry.source_filename}`}
+                      title="Előzmény törlése"
+                      onClick={() => void deleteHistoryEntry(entry)}
+                      disabled={historyAction !== null || downloadingId !== null}
+                    >
+                      {historyAction === entry.id ? "…" : "×"}
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
+          )}
+          {historyActionError && (
+            <p className="history-error" role="alert">{historyActionError}</p>
           )}
           {downloadError && <p className="history-error" role="alert">{downloadError}</p>}
         </section>

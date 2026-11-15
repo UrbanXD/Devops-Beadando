@@ -12,13 +12,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 
 from app.conversion_storage import (
     conversion_output_path,
+    delete_conversion_output,
+    delete_user_conversion_outputs,
     store_conversion_output,
 )
 from app.database import get_db
@@ -350,6 +352,22 @@ def get_conversion_history(
     )
 
 
+@router.delete(
+    "/history",
+    summary="Saját konverziós előzmények törlése",
+)
+def clear_conversion_history(
+    current_user: CurrentUser,
+    database: DatabaseSession,
+) -> dict[str, int]:
+    result = database.execute(
+        delete(ConversionHistory).where(ConversionHistory.user_id == current_user.id)
+    )
+    database.commit()
+    delete_user_conversion_outputs(current_user.id)
+    return {"deleted_count": result.rowcount or 0}
+
+
 @router.get(
     "/history/{conversion_id}/download",
     response_class=FileResponse,
@@ -389,6 +407,38 @@ def download_conversion(
         media_type=media_type,
         filename=history_entry.output_filename,
     )
+
+
+@router.delete(
+    "/history/{conversion_id}",
+    summary="Egy saját konverziós előzmény törlése",
+)
+def delete_conversion_history_entry(
+    conversion_id: int,
+    current_user: CurrentUser,
+    database: DatabaseSession,
+) -> dict[str, str]:
+    history_entry = database.scalar(
+        select(ConversionHistory).where(
+            ConversionHistory.id == conversion_id,
+            ConversionHistory.user_id == current_user.id,
+        )
+    )
+    if history_entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="A konverziós előzmény nem található.",
+        )
+
+    storage_key = history_entry.storage_key
+    database.delete(history_entry)
+    database.commit()
+    try:
+        delete_conversion_output(current_user.id, storage_key)
+    except OSError:
+        logger.exception("Nem sikerült törölni a konverziós eredményfájlt.")
+
+    return {"status": "deleted"}
 
 
 @router.post(

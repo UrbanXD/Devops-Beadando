@@ -49,3 +49,13 @@ def conversion_output_path(user_id: int, storage_key: str) -> Path | None:
 
 def delete_user_conversion_outputs(user_id: int) -> None:
     shutil.rmtree(user_conversion_directory(user_id), ignore_errors=True)
+
+
+def delete_conversion_output(user_id: int, storage_key: str) -> None:
+    output_path = conversion_output_path(user_id, storage_key)
+    if output_path is not None:
+        output_path.unlink(missing_ok=True)
+        try:
+            output_path.parent.rmdir()
+        except OSError:
+            pass
