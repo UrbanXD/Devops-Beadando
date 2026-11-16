@@ -25,6 +25,7 @@ from app.conversion_storage import (
 )
 from app.database import get_db
 from app.models import ConversionHistory, User
+from app.observability import measure_conversion
 from app.schemas import ConversionHistoryResponse
 from app.security import get_current_user, get_optional_current_user
 
@@ -226,46 +227,49 @@ def _convert_upload(
         else:
             _validate_docx(source)
 
-        try:
-            converter(source, destination, workspace)
-        except ConversionUnavailableError:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="A konverziós szolgáltatás jelenleg nem érhető el.",
-            ) from None
-        except ConversionTimeoutError:
-            raise HTTPException(
-                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="A konverzió túllépte a megengedett időt.",
-            ) from None
-        except Exception:
-            logger.exception("A dokumentum konvertálása sikertelen.")
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Nem sikerült feldolgozni a dokumentumot. Ellenőrizd a fájlt.",
-            ) from None
+        direction = f"{input_extension[1:]}-to-{output_extension[1:]}"
+        with measure_conversion(direction):
+            try:
+                converter(source, destination, workspace)
+            except ConversionUnavailableError:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="A konverziós szolgáltatás jelenleg nem érhető el.",
+                ) from None
+            except ConversionTimeoutError:
+                raise HTTPException(
+                    status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                    detail="A konverzió túllépte a megengedett időt.",
+                ) from None
+            except Exception:
+                logger.exception("A dokumentum konvertálása sikertelen.")
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="Nem sikerült feldolgozni a dokumentumot. Ellenőrizd a fájlt.",
+                ) from None
 
-        if not destination.is_file() or destination.stat().st_size == 0:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Nem sikerült feldolgozni a dokumentumot. Ellenőrizd a fájlt.",
-            )
+            if not destination.is_file() or destination.stat().st_size == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail="Nem sikerült feldolgozni a dokumentumot. Ellenőrizd a fájlt.",
+                )
 
-        response_path = destination
+            response_path = destination
+            if current_user is not None:
+                response_path = _store_history(
+                    database=database,
+                    user=current_user,
+                    source_filename=source_filename,
+                    direction=direction,
+                    output_filename=output_filename,
+                    output_path=destination,
+                )
+
         response_background = BackgroundTask(
             shutil.rmtree,
             workspace,
             ignore_errors=True,
         )
-        if current_user is not None:
-            response_path = _store_history(
-                database=database,
-                user=current_user,
-                source_filename=source_filename,
-                direction=f"{input_extension[1:]}-to-{output_extension[1:]}",
-                output_filename=output_filename,
-                output_path=destination,
-            )
         return FileResponse(
             response_path,
             media_type=output_media_type,
