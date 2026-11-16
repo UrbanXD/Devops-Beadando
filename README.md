@@ -24,8 +24,15 @@ Az API indulásakor az adatbázis-migrációk automatikusan lefutnak. A PostgreS
 - API dokumentáció: <http://localhost:8000/docs>
 - API állapot: <http://localhost:8000/api/health>
 - API és adatbázis állapota: <http://localhost:8000/api/health/ready>
+- API metrikák: <http://localhost:8000/metrics/>
 
 A szolgáltatások leállítása: `docker compose down`.
+
+Ha egy korábbi, rootként futó API után `/data` alatti `PermissionError` jelenik meg, a fájltár adatainak megtartásával javítható a tulajdonos: `docker compose exec -T -u 0 api chown -R 10001:10001 /data`.
+
+## Megfigyelhetőség
+
+Az API Prometheus-metrikákat és kérésazonosítóval ellátott JSON eseménynaplókat ad. A helyi Prometheus és Grafana indítása, a dashboard, az SLI/SLO definíciója és a naplók elérése: [OBSERVABILITY.md](OBSERVABILITY.md).
 
 ## Kubernetes fejlesztői és staging környezet
 
@@ -100,6 +107,8 @@ A jelszavak Argon2 hashként, a refresh tokenek SHA-256 hashként kerülnek az a
 - `compose.yaml` — helyi fejlesztői környezet.
 - `deploy/helm/converter/` — Kubernetes Helm chart.
 - `DEPLOYMENT.md` — fejlesztői/staging telepítés és visszaállítás.
+- `observability/` — Prometheus scrape, riasztás és Grafana dashboard konfiguráció.
+- `OBSERVABILITY.md` — metrikák, naplózás és SLI/SLO leírása.
 - `.env.example` — helyi konfiguráció mintája.
 
 Valódi hozzáférési titok nem kerülhet a Gitbe.

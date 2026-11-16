@@ -1,0 +1,36 @@
+groups:
+  - name: converter-slo
+    rules:
+      - alert: ConversionSLOHighBurnRate
+        expr: |
+          (
+            1 - (
+              sum(increase(converter_conversion_duration_seconds_bucket{
+                job="converter-api",
+                result="success",
+                le="120.0"
+              }[5m]))
+              /
+              sum(increase(converter_conversion_attempts_total{job="converter-api"}[5m]))
+            )
+          ) / 0.01 > 10
+          and sum(increase(converter_conversion_attempts_total{job="converter-api"}[5m])) >= 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: A konverziós SLO hibakerete gyorsan fogy.
+          description: >-
+            A gördülő 5 perces hibaarány legalább tízszerese az 1%-os
+            hibakeretnek. Ellenőrizd a konverziós dashboardot és az API JSON naplóit.
+
+      - alert: PrometheusScrapeFailed
+        expr: up{job="converter-api"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: A Prometheus nem éri el az API metrikavégpontját.
+          description: >-
+            A scrape hibája nem bizonyítja önmagában az API felhasználói
+            útvonalainak hibáját. Ellenőrizd a targetet és az API naplóit.
